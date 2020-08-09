@@ -114,12 +114,12 @@ architecture skidbuffer_lfsr of skidbuffer_lfsr is
 begin
 
   -- logic to generete the LFSR for the master port
-  m_lfsr_block : if M_LFSR generate
+  m_lfsr_block : if not M_LFSR generate
     m_valid_o <= o_valid_i;
     m_last_o  <= o_last_i;
   end generate m_lfsr_block;  
 
-  not_m_lfsr_block : if not M_LFSR generate
+  not_m_lfsr_block : if M_LFSR generate
     master_lfsr: entity work.lfsr
     generic map(
       SEED => M_SEED
@@ -135,11 +135,11 @@ begin
   end generate not_m_lfsr_block;  
   
   -- logic to generete the LFSR for the slave port
-  s_lfsr_block : if S_LFSR generate
+  s_lfsr_block : if not S_LFSR generate
     s_ready_o <= o_ready_i;
   end generate s_lfsr_block;  
 
-  not_s_lfsr_block : if not S_LFSR generate
+  not_s_lfsr_block : if S_LFSR generate
     slave_lfsr: entity work.lfsr
     generic map(
       SEED => S_SEED

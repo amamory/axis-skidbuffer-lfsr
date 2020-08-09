@@ -104,22 +104,15 @@ entity skidbuffer_lfsr is
 end skidbuffer_lfsr;
 
 architecture skidbuffer_lfsr of skidbuffer_lfsr is
-  signal r_data    : std_logic_vector(DW - 1 downto 0);
-  signal r_valid   : std_logic := '0';
-  signal o_ready_i : std_logic;
-  signal o_valid_i : std_logic;
-  signal o_last_i  : std_logic;
-  signal m_lfsr_o  : std_logic;
-  signal s_lfsr_o  : std_logic;
+  signal m_valid_s, m_lfsr_o  : std_logic;
 begin
 
   -- logic to generete the LFSR for the master port
-  m_lfsr_block : if not M_LFSR generate
-    m_valid_o <= o_valid_i;
-    m_last_o  <= o_last_i;
-  end generate m_lfsr_block;  
+  not_m_lfsr_block : if not M_LFSR generate
+    m_valid_o <= m_valid_s;
+  end generate not_m_lfsr_block;  
 
-  not_m_lfsr_block : if M_LFSR generate
+  m_lfsr_block : if M_LFSR generate
     master_lfsr: entity work.lfsr
     generic map(
       SEED => M_SEED
@@ -130,117 +123,27 @@ begin
       rand_out => m_lfsr_o
     );
 
-    m_valid_o <= o_valid_i and m_lfsr_o;
-    m_last_o  <= o_last_i and m_lfsr_o;
-  end generate not_m_lfsr_block;  
-  
-  -- logic to generete the LFSR for the slave port
-  s_lfsr_block : if not S_LFSR generate
-    s_ready_o <= o_ready_i;
-  end generate s_lfsr_block;  
+    m_valid_o <= m_valid_s and m_lfsr_o;
+  end generate m_lfsr_block;  
 
-  not_s_lfsr_block : if S_LFSR generate
-    slave_lfsr: entity work.lfsr
-    generic map(
-      SEED => S_SEED
-    )
-    port map(
-      clk      => clock,
-      reset_n  => reset_n,
-      rand_out => s_lfsr_o
-    );
-
-    s_ready_o <= o_ready_i and s_lfsr_o;    
-  end generate not_s_lfsr_block;  
-
-    --s_ready_o <= o_ready_i;
-    --m_valid_o <= o_valid_i;
-    --m_last_o  <= o_last_i;
-
-    process(clock)
-    begin
-      if rising_edge(clock) then
-        if reset_n = '0' then
-          r_valid <= '0';
-        else
-          if (s_valid_i = '1' and o_ready_i = '1') and (o_valid_i = '1' and m_ready_i = '0') then
-            -- We have incoming data, but the output is stalled
-            r_valid <= '1';
-          elsif m_ready_i = '1' then
-            r_valid <= '0';
-          end if;
-        end if;
-
-      end if;
-    end process;
-
-    process(clock)
-    begin
-      if rising_edge(clock) then
-        if (not OPT_OUTREG or s_valid_i = '1') and (o_ready_i = '1') then
-          r_data <= s_data_i;
-        end if;
-      end if;
-    end process;
-
-    o_ready_i <= '1' when r_valid = '0' else '0';
-
-		--
-		-- And then move on to the output port
-		--
-    g_not_out_reg : if not OPT_OUTREG generate
-      o_valid_i <= '1' when reset_n = '1' and (s_valid_i = '1' or r_valid = '1') else '0';
-      o_last_i  <= '1' when reset_n = '1' and (s_valid_i = '1' or r_valid = '1') and s_last_i = '1' else '0';
-
-      process(r_valid, r_data, s_data_i, s_valid_i)
-      begin
-        if r_valid = '1' then
-          m_data_o <= r_data;
-        elsif s_valid_i = '0' then
-          m_data_o <= s_data_i;
-        end if;
-      end process;
-    end generate g_not_out_reg;
-
-    g_out_reg : if OPT_OUTREG generate
-      process(clock)
-      begin
-        if rising_edge(clock) then
-          if reset_n = '0' then
-            o_valid_i <= '0';
-          elsif o_valid_i = '0' or m_ready_i = '1' then
-            o_valid_i <= s_valid_i or r_valid;
-          end if;
-        end if;
-      end process;
-
-      process(clock)
-      begin
-        if rising_edge(clock) then
-          if reset_n = '0' then
-            o_last_i <= '0';
-          elsif o_last_i = '0' or m_ready_i = '1' then
-            o_last_i <= (s_valid_i or r_valid ) and s_last_i;
-          end if;
-        end if;
-      end process;
-
-      process(clock)
-      begin
-        if rising_edge(clock) then
-          if reset_n = '0' then
-            m_data_o <= (others => '0');
-          elsif o_valid_i = '0' or m_ready_i = '1' then
-            if r_valid = '1' then
-              m_data_o <= r_data;
-            elsif s_valid_i = '1' then
-              m_data_o <= s_data_i;
-            end if;
-          end if;
-        end if;
-      end process;
-
-    end generate g_out_reg;
-
+  skid: entity work.skidbuffer
+  generic map(
+    DW => DW,
+    OPT_OUTREG => OPT_OUTREG
+  )
+  port map ( 
+    clock     => clock,
+    reset_n   => reset_n,
+    -- axi slave streaming interface
+    s_valid_i => s_valid_i,
+    s_ready_o => s_ready_o,
+    s_last_i  => s_last_i,
+    s_data_i  => s_data_i,
+    -- axi master streaming interface
+    m_valid_o => m_valid_s,
+    m_ready_i => m_ready_i,
+    m_last_o  => m_last_o,
+    m_data_o  => m_data_o
+  );
 
 end skidbuffer_lfsr;

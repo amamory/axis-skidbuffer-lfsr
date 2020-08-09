@@ -160,6 +160,10 @@ begin
     s_last_i <= s_last_s ;
 
  skid: entity work.skidbuffer_lfsr
+   generic map(
+        M_LFSR => True,
+        S_LFSR => False
+   )
    port map ( 
         clock     => clock,
         reset_n   => reset_n,

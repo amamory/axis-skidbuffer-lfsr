@@ -69,11 +69,10 @@ begin
 				rand_temp := seed;
 			else
 				temp := rand_temp(15) xor rand_temp(14) xor rand_temp(12) xor rand_temp(3);
-				rand_temp(15 downto 1) := rand_temp(14 downto 0);
-				rand_temp(0) := temp;
+				rand_temp := rand_temp(14 downto 0) & temp;
 			end if;
 		end if;
-		rand_out <= rand_temp(15);
+		rand_out <= rand_temp(0);
 	end process;
 
 end Behavioral;

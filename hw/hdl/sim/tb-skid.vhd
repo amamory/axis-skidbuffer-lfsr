@@ -161,8 +161,8 @@ begin
 
  skid: entity work.skidbuffer_lfsr
    generic map(
-        M_LFSR => True,
-        S_LFSR => False
+        --M_LFSR => True,
+        S_LFSR => True
    )
    port map ( 
         clock     => clock,

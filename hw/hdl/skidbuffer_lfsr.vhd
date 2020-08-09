@@ -1,79 +1,5 @@
---
--- DVB IP
---
--- source: https://raw.githubusercontent.com/suoto/fpga_cores/master/src/skidbuffer_lfsr.vhd
--- modified by Alexandre Amory
+-- sikdbuffer with an LFSR for gating the slave port
 
--- Copyright 2019 by Suoto <andre820@gmail.com>
---
--- This file is part of DVB IP.
---
--- DVB IP is free software: you can redistribute it and/or modify
--- it under the terms of the GNU General Public License as published by
--- the Free Software Foundation, either version 3 of the License, or
--- (at your option) any later version.
---
--- DVB IP is distributed in the hope that it will be useful,
--- but WITHOUT ANY WARRANTY; without even the implied warranty of
--- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
--- GNU General Public License for more details.
---
--- You should have received a copy of the GNU General Public License
--- along with DVB IP.  If not, see <http://www.gnu.org/licenses/>.
-
--- ##########################################################################
--- ## Based on Dan Gisselquist's skidbuffer_lfsr.v the original can be found in ##
--- ## https://github.com/ZipCPU/wb2axip/blob/master/rtl/skidbuffer_lfsr.v       ##
--- ##########################################################################
-
---------------------------------------------------------------------------------
---
--- Filename: 	skidbuffer_lfsr.v
---
--- Project:	WB2AXIPSP: bus bridges and other odds and ends
---
--- Purpose:	A basic SKID buffer.
---
---	Skid buffers are required for high throughput AXI code, since the AXI
---	specification requires that all outputs be registered.  This means
---	that, if there are any stall conditions calculated, it will take a clock
---	cycle before the stall can be propagated up stream.  This means that
---	the data will need to be buffered for a cycle until the stall signal
---	can make it to the output.
---
---	Handling that buffer is the purpose of this core.
---
---	On one end of this core, you have the s_valid_i and s_data_i inputs to
---	connect to your bus interface.  There's also a registered s_ready_o
---	signal to signal stalls for the bus interface.
---
---	The other end of the core has the same basic interface, but it isn't
---	registered.  This allows you to interact with the bus interfaces
---	as though they were combinatorial logic, by interacting with this half
---	of the core.
---
---	If at any time the incoming !stall signal, m_ready_i, signals a stall,
---	the incoming data is placed into a buffer.  Internally, that buffer
---	is held in r_data with the r_valid flag used to indicate that valid
---	data is within it.
---
--- Parameters:
---	DW or data width
---		In order to make this core generic, the width of the data in the
---		skid buffer is parameterized
---
---
---	OPT_OUTREG
---		Causes the outputs to be registered
---
---
--- Creator:	Dan Gisselquist, Ph.D.
---		Gisselquist Technology, LLC
---
-
----------------
--- Libraries --
----------------
 library ieee;
 use ieee.std_logic_1164.all;
 
@@ -82,10 +8,8 @@ entity skidbuffer_lfsr is
     DW         : natural := 32;
     OPT_OUTREG : boolean := True;
     -- LFSR enablers
-    M_LFSR : boolean := True;
     S_LFSR : boolean := True;
     -- LFSR seeds
-    M_SEED : std_logic_vector(15 downto 0) := x"1234";
     S_SEED : std_logic_vector(15 downto 0) := x"ABCD"
     );
   port (
@@ -104,46 +28,31 @@ entity skidbuffer_lfsr is
 end skidbuffer_lfsr;
 
 architecture skidbuffer_lfsr of skidbuffer_lfsr is
-  --signal m_valid_s, m_ready_s, m_last_s, m_lfsr_o  : std_logic;
   signal s_valid_s, s_ready_s, s_last_s, s_lfsr_o : std_logic;
 begin
 
-  -- logic to generete the LFSR for the master port
-  --not_m_lfsr_block : if not M_LFSR generate
-  --  m_valid_o <= m_valid_s;
-  --  m_ready_s <= m_ready_i;
-  --  m_last_o  <= m_last_s;
-  --end generate not_m_lfsr_block;  
---
-  --m_lfsr_block : if M_LFSR generate
-  --  master_lfsr: entity work.lfsr
-  --  generic map(
-  --    SEED => M_SEED
-  --  )
-  --  port map(
-  --    clk      => clock,
-  --    reset_n  => reset_n,
-  --    rand_out => m_lfsr_o
-  --  );
---
-  --  m_valid_o <= m_valid_s and m_lfsr_o;
-  --  m_ready_s <= m_ready_i and m_lfsr_o;
-  --  m_last_o  <= m_last_s and m_lfsr_o;
-  --end generate m_lfsr_block;  
+  -- logic to generete the LFSR for the slave port
+  not_s_lfsr_block : if not S_LFSR generate
+    s_valid_s <= s_valid_i;
+    s_ready_o <= s_ready_s;
+    s_last_s  <= s_last_i ;
+  end generate not_s_lfsr_block;  
 
-  slave_lfsr: entity work.lfsr
-  generic map(
-    SEED => S_SEED
-  )
-  port map(
-    clk      => clock,
-    reset_n  => reset_n,
-    rand_out => s_lfsr_o
-  );
+  s_lfsr_block : if S_LFSR generate
+    slave_lfsr: entity work.lfsr
+    generic map(
+      SEED => S_SEED
+    )
+    port map(
+      clk      => clock,
+      reset_n  => reset_n,
+      rand_out => s_lfsr_o
+    );
 
-  s_valid_s <= s_valid_i and s_lfsr_o;
-  s_ready_o <= s_ready_s and s_lfsr_o;
-  s_last_s  <= s_last_i  and s_lfsr_o;
+    s_valid_s <= s_valid_i and s_lfsr_o;
+    s_ready_o <= s_ready_s and s_lfsr_o;
+    s_last_s  <= s_last_i  and s_lfsr_o;
+  end generate s_lfsr_block;  
 
   skid: entity work.skidbuffer
   generic map(

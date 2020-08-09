@@ -153,7 +153,7 @@ begin
     s_ready_o <= o_ready_i and s_lfsr_o;    
   end generate not_s_lfsr_block;  
 
-    s_ready_o <= o_ready_i;
+    --s_ready_o <= o_ready_i;
     --m_valid_o <= o_valid_i;
     --m_last_o  <= o_last_i;
 

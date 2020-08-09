@@ -104,12 +104,14 @@ entity skidbuffer_lfsr is
 end skidbuffer_lfsr;
 
 architecture skidbuffer_lfsr of skidbuffer_lfsr is
-  signal m_valid_s, m_lfsr_o  : std_logic;
+  signal m_valid_s, m_ready_s, m_last_s, m_lfsr_o  : std_logic;
 begin
 
   -- logic to generete the LFSR for the master port
   not_m_lfsr_block : if not M_LFSR generate
     m_valid_o <= m_valid_s;
+    m_ready_s <= m_ready_i;
+    m_last_o  <= m_last_s;
   end generate not_m_lfsr_block;  
 
   m_lfsr_block : if M_LFSR generate
@@ -124,6 +126,8 @@ begin
     );
 
     m_valid_o <= m_valid_s and m_lfsr_o;
+    m_ready_s <= m_ready_i and m_lfsr_o;
+    m_last_o  <= m_last_s and m_lfsr_o;
   end generate m_lfsr_block;  
 
   skid: entity work.skidbuffer
@@ -141,8 +145,8 @@ begin
     s_data_i  => s_data_i,
     -- axi master streaming interface
     m_valid_o => m_valid_s,
-    m_ready_i => m_ready_i,
-    m_last_o  => m_last_o,
+    m_ready_i => m_ready_s,
+    m_last_o  => m_last_s,
     m_data_o  => m_data_o
   );
 

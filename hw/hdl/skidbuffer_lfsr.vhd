@@ -104,31 +104,46 @@ entity skidbuffer_lfsr is
 end skidbuffer_lfsr;
 
 architecture skidbuffer_lfsr of skidbuffer_lfsr is
-  signal m_valid_s, m_ready_s, m_last_s, m_lfsr_o  : std_logic;
+  --signal m_valid_s, m_ready_s, m_last_s, m_lfsr_o  : std_logic;
+  signal s_valid_s, s_ready_s, s_last_s, s_lfsr_o : std_logic;
 begin
 
   -- logic to generete the LFSR for the master port
-  not_m_lfsr_block : if not M_LFSR generate
-    m_valid_o <= m_valid_s;
-    m_ready_s <= m_ready_i;
-    m_last_o  <= m_last_s;
-  end generate not_m_lfsr_block;  
+  --not_m_lfsr_block : if not M_LFSR generate
+  --  m_valid_o <= m_valid_s;
+  --  m_ready_s <= m_ready_i;
+  --  m_last_o  <= m_last_s;
+  --end generate not_m_lfsr_block;  
+--
+  --m_lfsr_block : if M_LFSR generate
+  --  master_lfsr: entity work.lfsr
+  --  generic map(
+  --    SEED => M_SEED
+  --  )
+  --  port map(
+  --    clk      => clock,
+  --    reset_n  => reset_n,
+  --    rand_out => m_lfsr_o
+  --  );
+--
+  --  m_valid_o <= m_valid_s and m_lfsr_o;
+  --  m_ready_s <= m_ready_i and m_lfsr_o;
+  --  m_last_o  <= m_last_s and m_lfsr_o;
+  --end generate m_lfsr_block;  
 
-  m_lfsr_block : if M_LFSR generate
-    master_lfsr: entity work.lfsr
-    generic map(
-      SEED => M_SEED
-    )
-    port map(
-      clk      => clock,
-      reset_n  => reset_n,
-      rand_out => m_lfsr_o
-    );
+  slave_lfsr: entity work.lfsr
+  generic map(
+    SEED => S_SEED
+  )
+  port map(
+    clk      => clock,
+    reset_n  => reset_n,
+    rand_out => s_lfsr_o
+  );
 
-    m_valid_o <= m_valid_s and m_lfsr_o;
-    m_ready_s <= m_ready_i and m_lfsr_o;
-    m_last_o  <= m_last_s and m_lfsr_o;
-  end generate m_lfsr_block;  
+  s_valid_s <= s_valid_i and s_lfsr_o;
+  s_ready_o <= s_ready_s and s_lfsr_o;
+  s_last_s  <= s_last_i  and s_lfsr_o;
 
   skid: entity work.skidbuffer
   generic map(
@@ -139,14 +154,14 @@ begin
     clock     => clock,
     reset_n   => reset_n,
     -- axi slave streaming interface
-    s_valid_i => s_valid_i,
-    s_ready_o => s_ready_o,
-    s_last_i  => s_last_i,
+    s_valid_i => s_valid_s,
+    s_ready_o => s_ready_s,
+    s_last_i  => s_last_s,
     s_data_i  => s_data_i,
     -- axi master streaming interface
-    m_valid_o => m_valid_s,
-    m_ready_i => m_ready_s,
-    m_last_o  => m_last_s,
+    m_valid_o => m_valid_o,
+    m_ready_i => m_ready_i,
+    m_last_o  => m_last_o,
     m_data_o  => m_data_o
   );
 
